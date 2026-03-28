@@ -1,0 +1,1296 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ระบบตรวจจับทะเบียนรถ</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #0a0e1a;
+    --surface: #111827;
+    --surface2: #1a2235;
+    --border: rgba(255,255,255,0.08);
+    --accent: #3b82f6;
+    --accent2: #10b981;
+    --warn: #f59e0b;
+    --danger: #ef4444;
+    --text: #f1f5f9;
+    --text2: #94a3b8;
+    --text3: #475569;
+    --cam-color: #3b82f6;
+    --car-color: #10b981;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Sarabun', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ===== HEADER ===== */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  header .logo {
+    width: 36px; height: 36px;
+    background: var(--accent);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  header h1 { font-size: 16px; font-weight: 600; }
+  header p { font-size: 12px; color: var(--text2); }
+  .header-stats {
+    margin-left: auto;
+    display: flex;
+    gap: 16px;
+  }
+  .stat-pill {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 12px;
+    color: var(--text2);
+  }
+  .stat-pill span { color: var(--accent); font-weight: 600; font-family: 'IBM Plex Mono', monospace; }
+
+  /* ===== UPLOAD ZONE ===== */
+  .upload-section {
+    padding: 20px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 28px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--surface);
+    position: relative;
+  }
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(59,130,246,0.05);
+  }
+  .upload-zone input[type=file] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+  .upload-icon { font-size: 32px; margin-bottom: 8px; }
+  .upload-text { font-size: 15px; font-weight: 500; margin-bottom: 4px; }
+  .upload-sub { font-size: 12px; color: var(--text2); }
+  .upload-btn {
+    display: inline-block;
+    margin-top: 12px;
+    padding: 8px 20px;
+    background: var(--accent);
+    color: white;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    pointer-events: none;
+  }
+
+  /* File chips */
+  .file-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .file-chip {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 10px 4px 8px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .file-chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent2); }
+  .file-chip .del { cursor: pointer; color: var(--text3); font-size: 14px; margin-left: 2px; }
+  .file-chip .del:hover { color: var(--danger); }
+
+  /* ===== CONTROLS ===== */
+  .controls {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+  }
+  .control-group { display: flex; flex-direction: column; gap: 4px; }
+  .control-group label { font-size: 11px; color: var(--text2); }
+  select, input[type=text] {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'Sarabun', sans-serif;
+    font-size: 13px;
+    padding: 6px 10px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  select:focus, input[type=text]:focus { border-color: var(--accent); }
+  .search-box { flex: 1; min-width: 140px; }
+
+  .btn {
+    padding: 7px 16px;
+    border-radius: 8px;
+    border: none;
+    font-family: 'Sarabun', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { background: #2563eb; }
+  .btn-success { background: var(--accent2); color: white; }
+  .btn-success:hover { background: #059669; }
+  .btn-ghost {
+    background: var(--surface2);
+    color: var(--text2);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { background: var(--surface); color: var(--text); }
+
+  /* ===== TABS ===== */
+  .tabs {
+    display: flex;
+    padding: 0 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    overflow-x: auto;
+  }
+  .tab {
+    padding: 10px 16px;
+    font-size: 13px;
+    color: var(--text2);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    transition: all 0.15s;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 500; }
+
+  /* ===== RESULTS TABLE ===== */
+  .content { padding: 16px; }
+
+  /* flat table */
+  .result-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .result-table thead th {
+    text-align: left; padding: 8px 10px;
+    font-size: 11px; font-weight: 500; color: var(--text2);
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0;
+    background: var(--bg);
+    white-space: nowrap;
+  }
+  .result-table tbody tr {
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    transition: background 0.1s;
+    cursor: pointer;
+  }
+  .result-table tbody tr:hover { background: var(--surface2); }
+  .result-table tbody tr.sel-row { background: rgba(59,130,246,0.12); }
+  .result-table td { padding: 7px 10px; white-space: nowrap; }
+  .plate-badge {
+    background: var(--accent);
+    color: white;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 5px;
+    letter-spacing: 0.04em;
+    display: inline-block;
+  }
+  .province-tag {
+    background: rgba(16,185,129,0.15);
+    color: var(--accent2);
+    font-size: 11px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    display: inline-block;
+  }
+  .cam-count {
+    background: rgba(245,158,11,0.15);
+    color: var(--warn);
+    font-size: 11px; font-weight: 600;
+    padding: 2px 8px; border-radius: 20px;
+    display: inline-block;
+  }
+  .time-mono {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px; color: var(--accent);
+  }
+  .cam-name { font-size: 12px; color: var(--text2); }
+
+  /* checkpoint chips */
+  .cp-cell { white-space: nowrap; }
+  .cp-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 3px 7px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+  .cp-chip.cp-shared {
+    border-color: rgba(59,130,246,0.5);
+    background: rgba(59,130,246,0.08);
+  }
+  .cp-chip.cp-target {
+    border-color: rgba(59,130,246,0.6);
+    background: rgba(59,130,246,0.12);
+  }
+  .cp-cam { color: var(--text2); }
+  .cp-time { font-family: 'IBM Plex Mono', monospace; color: var(--accent); font-size: 11px; }
+  .cp-date { color: var(--text3); font-size: 10px; }
+  .cp-arrow { color: var(--text3); padding: 0 3px; font-size: 11px; }
+
+  /* ===== CONVOY TAB ===== */
+  .convoy-top {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+  }
+  .convoy-top label { font-size: 11px; color: var(--text2); display: block; margin-bottom: 6px; }
+  .convoy-select-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .convoy-select-row select { flex: 1; min-width: 160px; }
+  .window-row { display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+  .window-row label { font-size: 11px; color: var(--text2); white-space: nowrap; }
+
+  .convoy-section-title {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+    padding: 6px 0 4px;
+    margin-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .convoy-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 16px; }
+  .convoy-table th {
+    text-align: left; padding: 6px 10px;
+    font-size: 11px; color: var(--text2); font-weight: 400;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  .convoy-table td { padding: 7px 10px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .convoy-table tr:hover td { background: var(--surface2); }
+  .badge-lead { background: rgba(239,68,68,0.15); color: #fca5a5; font-size: 11px; padding: 1px 7px; border-radius: 20px; }
+  .badge-follow { background: rgba(16,185,129,0.15); color: var(--accent2); font-size: 11px; padding: 1px 7px; border-radius: 20px; }
+  .diff-neg { color: #f87171; font-family:'IBM Plex Mono',monospace; font-size:11px; }
+  .diff-pos { color: var(--accent2); font-family:'IBM Plex Mono',monospace; font-size:11px; }
+
+  /* ===== GRAPH VIEW ===== */
+  #graphContainer {
+    display: none;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+  }
+  #graphContainer.active { display: block; }
+  #graphCanvas {
+    width: 100%;
+    cursor: grab;
+    display: block;
+  }
+  #graphCanvas:active { cursor: grabbing; }
+
+  .graph-controls {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    gap: 6px;
+  }
+  .graph-btn {
+    width: 32px; height: 32px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text2);
+    font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+  }
+  .graph-btn:hover { background: var(--surface); color: var(--text); }
+
+  /* ===== EMPTY STATE ===== */
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text3);
+  }
+  .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-state p { font-size: 14px; }
+
+  /* ===== TOAST ===== */
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 18px;
+    font-size: 13px;
+    z-index: 999;
+    transition: transform 0.3s;
+    white-space: nowrap;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.success { border-color: var(--accent2); color: var(--accent2); }
+  .toast.error { border-color: var(--danger); color: var(--danger); }
+
+  /* ===== MOBILE FIXES ===== */
+  @media (max-width: 480px) {
+    .header-stats { display: none; }
+    .controls { gap: 8px; }
+    .plate-badge { font-size: 13px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">📷</div>
+  <div>
+    <h1>ระบบตรวจจับทะเบียนรถ</h1>
+    <p>Vehicle Plate Cross-Camera Tracker</p>
+  </div>
+  <div class="header-stats">
+    <div class="stat-pill">กล้อง <span id="statCams">0</span></div>
+    <div class="stat-pill">รถ <span id="statCars">0</span></div>
+    <div class="stat-pill">ซ้ำ <span id="statDups">0</span></div>
+  </div>
+</header>
+
+<!-- UPLOAD -->
+<div class="upload-section">
+  <div class="upload-zone" id="uploadZone">
+    <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" multiple>
+    <div class="upload-icon">📂</div>
+    <div class="upload-text">อัปโหลดไฟล์ CSV</div>
+    <div class="upload-sub">ลากวาง หรือแตะเพื่อเลือกไฟล์ · รองรับหลายไฟล์พร้อมกัน</div>
+    <div class="upload-btn">เลือกไฟล์</div>
+  </div>
+  <div class="file-list" id="fileList"></div>
+</div>
+
+<!-- CONTROLS -->
+<div class="controls">
+  <div class="control-group">
+    <label>ค้นหาทะเบียน</label>
+    <input type="text" id="searchInput" class="search-box" placeholder="เช่น ผค-3512">
+  </div>
+  <div class="control-group">
+    <label>กล้องขั้นต่ำ</label>
+    <select id="minCams">
+      <option value="2">2 กล้องขึ้นไป</option>
+      <option value="3" selected>3 กล้องขึ้นไป</option>
+      <option value="4">4 กล้องขึ้นไป</option>
+      <option value="1">ทั้งหมด</option>
+    </select>
+  </div>
+  <div class="control-group">
+    <label>เรียงตาม</label>
+    <select id="sortBy">
+      <option value="cams">จำนวนกล้อง</option>
+      <option value="plate">ทะเบียน</option>
+      <option value="time">เวลาแรก</option>
+    </select>
+  </div>
+  <button class="btn btn-primary" onclick="analyze()">🔍 วิเคราะห์</button>
+  <button class="btn btn-ghost" onclick="clearAll()">🗑 ล้าง</button>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('list', this)">📋 รายการ</div>
+  <div class="tab" onclick="switchTab('convoy', this)">🚗 นำ-ตาม</div>
+  <div class="tab" onclick="switchTab('graph', this)">🕸 แผนที่เส้นทาง</div>
+  <div class="tab" onclick="switchTab('summary', this)">📊 สรุปกล้อง</div>
+</div>
+
+<!-- CONTENT -->
+<div class="content">
+
+  <!-- LIST TAB: flat table -->
+  <div id="tabList">
+    <div class="empty-state" id="emptyState">
+      <div class="icon">🚗</div>
+      <p>อัปโหลดไฟล์ CSV แล้วกด "วิเคราะห์"<br>เพื่อดูทะเบียนที่ผ่านหลายกล้อง</p>
+    </div>
+    <div id="resultList" style="overflow-x:auto;"></div>
+  </div>
+
+  <!-- CONVOY TAB -->
+  <div id="tabConvoy" style="display:none;">
+    <div class="convoy-top">
+      <label>เลือกทะเบียนรถเป้าหมาย</label>
+      <div class="convoy-select-row">
+        <select id="convoyPlateSelect" onchange="runConvoy()">
+          <option value="">-- เลือกทะเบียน --</option>
+        </select>
+      </div>
+    </div>
+    <div id="convoyResult">
+      <div class="empty-state">
+        <div class="icon">🚗</div>
+        <p>เลือกทะเบียนเพื่อดูรถนำ-ตาม</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- GRAPH TAB -->
+  <div id="tabGraph" style="display:none;">
+    <div id="graphContainer">
+      <canvas id="graphCanvas" height="500"></canvas>
+      <div class="graph-controls">
+        <div class="graph-btn" onclick="zoomGraph(1.2)">+</div>
+        <div class="graph-btn" onclick="zoomGraph(0.8)">−</div>
+        <div class="graph-btn" onclick="resetGraph()">⟲</div>
+      </div>
+    </div>
+    <div class="empty-state" id="graphEmpty">
+      <div class="icon">🕸</div>
+      <p>กด "วิเคราะห์" เพื่อดูแผนที่เส้นทาง</p>
+    </div>
+  </div>
+
+  <!-- SUMMARY TAB -->
+  <div id="tabSummary" style="display:none;">
+    <div id="summaryContent">
+      <div class="empty-state">
+        <div class="icon">📊</div>
+        <p>กด "วิเคราะห์" เพื่อดูสรุปกล้อง</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ===== STATE =====
+let allData = [];       // { plate, province, type, brand, model, color, cam, datetime }
+let fileMap = {};       // filename -> rows
+let analysisResult = [];
+let graphData = null;
+let graphScale = 1;
+let graphOffX = 0, graphOffY = 0;
+let isDragging = false;
+let dragStart = {x:0, y:0};
+let selectedPlate = null;
+
+// ===== FILE HANDLING =====
+const fileInput = document.getElementById('fileInput');
+const uploadZone = document.getElementById('uploadZone');
+
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadZone.classList.remove('drag-over');
+  handleFiles(e.dataTransfer.files);
+});
+fileInput.addEventListener('change', e => handleFiles(e.target.files));
+
+function handleFiles(files) {
+  Array.from(files).forEach(file => {
+    if (fileMap[file.name]) return;
+    Papa.parse(file, {
+      skipEmptyLines: true,
+      complete: result => {
+        const rows = parseRows(result.data, file.name);
+        if (rows.length > 0) {
+          fileMap[file.name] = rows;
+          allData = Object.values(fileMap).flat();
+          renderFileChips();
+          updateStats();
+          showToast(`โหลด ${file.name} สำเร็จ (${rows.length} รายการ)`, 'success');
+        } else {
+          showToast(`ไม่พบข้อมูลใน ${file.name}`, 'error');
+        }
+      }
+    });
+  });
+}
+
+function parseRows(data, filename) {
+  const rows = [];
+  // Find header row
+  let headerIdx = -1;
+  let header = [];
+  for (let i = 0; i < Math.min(5, data.length); i++) {
+    const row = data[i].map(c => (c||'').toString().trim());
+    if (row.some(c => c === 'ทะเบียน' || c.toLowerCase() === 'plate')) {
+      headerIdx = i;
+      header = row;
+      break;
+    }
+  }
+  if (headerIdx === -1) {
+    // Try first row as header
+    headerIdx = 0;
+    header = data[0].map(c => (c||'').toString().trim());
+  }
+
+  // Map columns
+  const col = (names) => {
+    for (const n of names) {
+      const idx = header.findIndex(h => h.includes(n));
+      if (idx >= 0) return idx;
+    }
+    return -1;
+  };
+
+  const iPlate    = col(['ทะเบียน','plate','Plate']);
+  const iProv     = col(['หมวดจังหวัด','จังหวัด','province']);
+  const iType     = col(['ประเภทรถ','ประเภท','type']);
+  const iBrand    = col(['ยี่ห้อรถ','ยี่ห้อ','brand']);
+  const iModel    = col(['รุ่นรถ','รุ่น','model']);
+  const iColor    = col(['สีรถ','สี','color']);
+  const iCam      = col(['จุดตรวจ','กล้อง','cam','camera','checkpoint']);
+  const iTime     = col(['วันเวลา','เวลา','datetime','time','date']);
+
+  for (let i = headerIdx + 1; i < data.length; i++) {
+    const row = data[i];
+    const plate = iPlate >= 0 ? (row[iPlate]||'').trim() : '';
+    if (!plate || plate === 'ทะเบียน') continue;
+
+    // Parse datetime
+    let dt = iTime >= 0 ? (row[iTime]||'').trim() : '';
+    let dateObj = parseThaiDate(dt);
+
+    rows.push({
+      plate,
+      province: iProv >= 0 ? (row[iProv]||'').trim() : '',
+      type:     iType >= 0 ? (row[iType]||'').trim() : '',
+      brand:    iBrand >= 0 ? (row[iBrand]||'').trim() : '',
+      model:    iModel >= 0 ? (row[iModel]||'').trim() : '',
+      color:    iColor >= 0 ? (row[iColor]||'').trim() : '',
+      cam:      iCam >= 0 ? (row[iCam]||'').trim() : filename.replace('.csv',''),
+      datetime: dt,
+      dateObj,
+      source:   filename,
+    });
+  }
+  return rows;
+}
+
+function parseThaiDate(str) {
+  if (!str) return null;
+  // "HH:MM:SS DD/MM/YYYY" or "DD/MM/YYYY HH:MM:SS"
+  const m1 = str.match(/(\d{1,2}):(\d{2}):(\d{2})\s+(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m1) return new Date(+m1[6], +m1[5]-1, +m1[4], +m1[1], +m1[2], +m1[3]);
+  const m2 = str.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})/);
+  if (m2) return new Date(+m2[3], +m2[2]-1, +m2[1], +m2[4], +m2[5]);
+  return null;
+}
+
+function renderFileChips() {
+  const list = document.getElementById('fileList');
+  list.innerHTML = '';
+  Object.keys(fileMap).forEach(name => {
+    const chip = document.createElement('div');
+    chip.className = 'file-chip';
+    chip.innerHTML = `<span class="dot"></span>${name} (${fileMap[name].length})<span class="del" onclick="removeFile('${name}')">✕</span>`;
+    list.appendChild(chip);
+  });
+}
+
+function removeFile(name) {
+  delete fileMap[name];
+  allData = Object.values(fileMap).flat();
+  renderFileChips();
+  updateStats();
+}
+
+function clearAll() {
+  fileMap = {};
+  allData = [];
+  analysisResult = [];
+  renderFileChips();
+  updateStats();
+  document.getElementById('resultList').innerHTML = '';
+  document.getElementById('emptyState').style.display = '';
+  document.getElementById('statDups').textContent = '0';
+  fileInput.value = '';
+}
+
+function updateStats() {
+  const cams = new Set(allData.map(r => r.cam)).size;
+  const cars = new Set(allData.map(r => r.plate)).size;
+  document.getElementById('statCams').textContent = cams;
+  document.getElementById('statCars').textContent = cars;
+}
+
+// ===== ANALYSIS =====
+function analyze() {
+  if (allData.length === 0) { showToast('กรุณาอัปโหลดไฟล์ก่อน', 'error'); return; }
+
+  const minCams = parseInt(document.getElementById('minCams').value);
+  const sortBy = document.getElementById('sortBy').value;
+  const search = document.getElementById('searchInput').value.trim().toLowerCase();
+
+  // Group by plate
+  const plateMap = {};
+  allData.forEach(r => {
+    if (!plateMap[r.plate]) plateMap[r.plate] = [];
+    plateMap[r.plate].push(r);
+  });
+
+  // Filter
+  analysisResult = Object.entries(plateMap)
+    .filter(([plate, records]) => {
+      const camSet = new Set(records.map(r => r.cam));
+      if (camSet.size < minCams) return false;
+      if (search && !plate.toLowerCase().includes(search) &&
+          !records[0].province.toLowerCase().includes(search)) return false;
+      return true;
+    })
+    .map(([plate, records]) => {
+      const cams = new Set(records.map(r => r.cam));
+      const sorted = records.sort((a, b) => (a.dateObj||0) - (b.dateObj||0));
+      return { plate, records: sorted, camCount: cams.size, cams: [...cams] };
+    });
+
+  // Sort
+  if (sortBy === 'cams') analysisResult.sort((a,b) => b.camCount - a.camCount);
+  else if (sortBy === 'plate') analysisResult.sort((a,b) => a.plate.localeCompare(b.plate));
+  else if (sortBy === 'time') analysisResult.sort((a,b) => (a.records[0].dateObj||0) - (b.records[0].dateObj||0));
+
+  document.getElementById('statDups').textContent = analysisResult.length;
+  renderList();
+  populateConvoySelect();
+  buildGraph();
+  renderSummary();
+  showToast(`พบ ${analysisResult.length} ทะเบียนที่ผ่าน ${minCams}+ กล้อง`, 'success');
+}
+
+// ===== LIST RENDER (one row per plate, checkpoints inline) =====
+function renderList() {
+  const container = document.getElementById('resultList');
+  const empty = document.getElementById('emptyState');
+  container.innerHTML = '';
+
+  if (analysisResult.length === 0) {
+    empty.style.display = '';
+    empty.querySelector('p').textContent = 'ไม่พบทะเบียนที่ตรงเงื่อนไข';
+    return;
+  }
+  empty.style.display = 'none';
+
+  const tbl = document.createElement('table');
+  tbl.className = 'result-table';
+  tbl.innerHTML = `<thead><tr>
+    <th>ทะเบียน</th>
+    <th>จังหวัด</th>
+    <th style="min-width:320px;">จุดตรวจ · เวลา · วันที่</th>
+    <th>กล้อง</th>
+  </tr></thead><tbody id="resultTbody"></tbody>`;
+  container.appendChild(tbl);
+  const tbody = document.getElementById('resultTbody');
+
+  analysisResult.forEach(item => {
+    const tr = document.createElement('tr');
+    const info = item.records[0];
+
+    // build inline checkpoints string
+    const cpHtml = item.records.map(r => {
+      const cam = r.cam.replace(/^[0-9]+_/, '').replace(/_/g, ' ');
+      let timePart = '', datePart = '';
+      if (r.datetime) {
+        const m = r.datetime.match(/(\d{1,2}:\d{2}:\d{2})\s+(\d{1,2}\/\d{1,2}\/\d{4})/);
+        if (m) { timePart = m[1]; datePart = m[2]; }
+        else { const p = r.datetime.split(' '); timePart = p[0]||''; datePart = p[1]||''; }
+      }
+      return `<span class="cp-chip">
+        <span class="cp-cam">📷 ${cam}</span>
+        <span class="cp-time">${timePart}</span>
+        <span class="cp-date">${datePart}</span>
+      </span>`;
+    }).join('<span class="cp-arrow">›</span>');
+
+    tr.innerHTML = `
+      <td><span class="plate-badge">${item.plate}</span></td>
+      <td>${info.province ? `<span class="province-tag">${info.province}</span>` : ''}</td>
+      <td class="cp-cell">${cpHtml}</td>
+      <td><span class="cam-count">📷 ${item.camCount}</span></td>`;
+
+    tr.addEventListener('click', () => selectConvoyPlate(item.plate));
+    tbody.appendChild(tr);
+  });
+}
+
+// ===== CONVOY ANALYSIS =====
+function populateConvoySelect() {
+  const sel = document.getElementById('convoyPlateSelect');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">-- เลือกทะเบียน --</option>';
+  analysisResult.forEach(item => {
+    const opt = document.createElement('option');
+    opt.value = item.plate;
+    opt.textContent = `${item.plate}  (${item.records[0].province||''})  📷${item.camCount}`;
+    sel.appendChild(opt);
+  });
+  if (current) sel.value = current;
+}
+
+function selectConvoyPlate(plate) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => {
+    if (t.textContent.includes('นำ-ตาม')) t.classList.add('active');
+  });
+  ['tabList','tabGraph','tabSummary'].forEach(id => document.getElementById(id).style.display = 'none');
+  document.getElementById('tabConvoy').style.display = '';
+  document.getElementById('convoyPlateSelect').value = plate;
+  runConvoy();
+}
+
+function runConvoy() {
+  const plate = document.getElementById('convoyPlateSelect').value;
+  const container = document.getElementById('convoyResult');
+  if (!plate) {
+    container.innerHTML = '<div class="empty-state"><div class="icon">🚗</div><p>เลือกทะเบียนเพื่อดูรถนำ-ตาม</p></div>';
+    return;
+  }
+
+  const targetItem = analysisResult.find(x => x.plate === plate);
+  if (!targetItem) return;
+
+  // build target time map: cam -> dateObj
+  const targetTimeMap = {};
+  targetItem.records.forEach(r => { if (r.dateObj) targetTimeMap[r.cam] = r.dateObj; });
+  const targetCams = Object.keys(targetTimeMap);
+
+  // group all other records by plate
+  const plateMap = {};
+  allData.forEach(r => {
+    if (r.plate === plate) return;
+    if (!plateMap[r.plate]) plateMap[r.plate] = [];
+    plateMap[r.plate].push(r);
+  });
+
+  const leads = [], follows = [];
+
+  Object.entries(plateMap).forEach(([p, recs]) => {
+    // ต้องผ่านกล้องเดียวกันกับเป้าหมาย **ครบทุกจุด**
+    const matchedCams = [];
+    targetCams.forEach(cam => {
+      const match = recs.find(r => r.cam === cam && r.dateObj);
+      if (match) matchedCams.push({ cam, diff: (match.dateObj - targetTimeMap[cam]) / 1000, rec: match });
+    });
+    // ต้องผ่านครบเท่ากับเป้าหมาย
+    if (matchedCams.length !== targetCams.length) return;
+
+    const diffs = matchedCams.map(m => m.diff);
+    const allNeg = diffs.every(d => d < 0);
+    const allPos = diffs.every(d => d > 0);
+    if (!allNeg && !allPos) return; // mixed = skip
+
+    // build synthetic records sorted by time for display
+    const sortedRecs = recs
+      .filter(r => r.dateObj)
+      .sort((a,b) => a.dateObj - b.dateObj);
+
+    const info = recs.find(r => r.province) || recs[0];
+    const entry = { plate: p, info, records: sortedRecs, matchedCams, sharedCams: matchedCams.length };
+
+    if (allNeg) leads.push(entry);
+    else follows.push(entry);
+  });
+
+  // sort by avg abs diff on shared cams
+  const avgDiff = e => e.matchedCams.reduce((s,m) => s+Math.abs(m.diff),0) / e.matchedCams.length;
+  leads.sort((a,b) => avgDiff(a)-avgDiff(b));
+  follows.sort((a,b) => avgDiff(a)-avgDiff(b));
+
+  // render target info bar
+  const tInfo = targetItem.records[0];
+  const fmtSec = s => {
+    const a = Math.abs(s), m = Math.floor(a/60), sec = Math.floor(a%60);
+    return (s<0?'-':'+') + m + ':' + String(sec).padStart(2,'0');
+  };
+
+  const makeTable = (arr, sectionLabel, sectionColor, badgeClass) => {
+    if (arr.length === 0) return `<div style="color:var(--text3);font-size:13px;padding:10px 0 16px;">ไม่พบ</div>`;
+    let html = `
+      <div class="convoy-section-title" style="color:${sectionColor};">${sectionLabel} — ${arr.length} คัน</div>
+      <div style="overflow-x:auto;">
+      <table class="result-table" style="margin-bottom:20px;">
+        <thead><tr>
+          <th>ทะเบียน</th>
+          <th>จังหวัด</th>
+          <th style="min-width:320px;">จุดตรวจ · เวลา · วันที่</th>
+          <th>จุดร่วม</th>
+        </tr></thead><tbody>`;
+
+    arr.forEach(e => {
+      // chip for each record this plate passed (highlight shared cams)
+      const sharedCamIds = new Set(e.matchedCams.map(m => m.cam));
+      const cpHtml = e.records.map(r => {
+        const cam = r.cam.replace(/^[0-9]+_/, '').replace(/_/g, ' ');
+        let timePart = '', datePart = '';
+        if (r.datetime) {
+          const m2 = r.datetime.match(/(\d{1,2}:\d{2}:\d{2})\s+(\d{1,2}\/\d{1,2}\/\d{4})/);
+          if (m2) { timePart = m2[1]; datePart = m2[2]; }
+          else { const p2 = r.datetime.split(' '); timePart = p2[0]||''; datePart = p2[1]||''; }
+        }
+        const isShared = sharedCamIds.has(r.cam);
+        // find diff for shared cam
+        const mc = e.matchedCams.find(m => m.cam === r.cam);
+        const diffStr = mc ? `<span style="font-size:9px;color:${sectionColor};margin-left:2px;">${fmtSec(mc.diff)}</span>` : '';
+        return `<span class="cp-chip${isShared?' cp-shared':''}">
+          <span class="cp-cam">📷 ${cam}</span>
+          <span class="cp-time">${timePart}</span>
+          <span class="cp-date">${datePart}</span>
+          ${diffStr}
+        </span>`;
+      }).join('<span class="cp-arrow">›</span>');
+
+      html += `<tr>
+        <td><span class="plate-badge" style="background:${sectionColor==='#f87171'?'#991b1b':'#065f46'};">${e.plate}</span></td>
+        <td>${e.info.province ? `<span class="province-tag">${e.info.province}</span>` : ''}</td>
+        <td class="cp-cell">${cpHtml}</td>
+        <td><span class="cam-count" style="background:${sectionColor==='#f87171'?'rgba(239,68,68,0.15)':'rgba(16,185,129,0.15)'};color:${sectionColor};">📷 ${e.sharedCams}</span></td>
+      </tr>`;
+    });
+
+    html += `</tbody></table></div>`;
+    return html;
+  };
+
+  // target row
+  const tCpHtml = targetItem.records.map(r => {
+    const cam = r.cam.replace(/^[0-9]+_/, '').replace(/_/g, ' ');
+    let timePart = '', datePart = '';
+    if (r.datetime) {
+      const m = r.datetime.match(/(\d{1,2}:\d{2}:\d{2})\s+(\d{1,2}\/\d{1,2}\/\d{4})/);
+      if (m) { timePart = m[1]; datePart = m[2]; }
+      else { const p = r.datetime.split(' '); timePart = p[0]||''; datePart = p[1]||''; }
+    }
+    return `<span class="cp-chip cp-target"><span class="cp-cam">📷 ${cam}</span><span class="cp-time">${timePart}</span><span class="cp-date">${datePart}</span></span>`;
+  }).join('<span class="cp-arrow">›</span>');
+
+  container.innerHTML = `
+    <div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.3);border-radius:10px;padding:10px 14px;margin-bottom:14px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <span class="plate-badge" style="font-size:14px;">${plate}</span>
+        ${tInfo.province ? `<span class="province-tag">${tInfo.province}</span>` : ''}
+        <span style="font-size:11px;color:var(--text2);">เป้าหมาย</span>
+      </div>
+      <div class="cp-cell">${tCpHtml}</div>
+    </div>
+    ${makeTable(leads,   '▲ รถขับนำ',  '#f87171', 'badge-lead')}
+    ${makeTable(follows, '▼ รถขับตาม', '#34d399', 'badge-follow')}
+    <div style="font-size:11px;color:var(--text3);margin-top:4px;">เงื่อนไข: ต้องผ่านกล้องเดียวกันกับเป้าหมายครบทุกจุด และผ่านก่อน/หลังสม่ำเสมอ · ตัวเลขสีแดง/เขียว = ต่างเวลาจากเป้าหมาย</div>
+  `;
+}
+
+function formatDuration(mins) {
+  if (mins < 60) return `${mins} นาที`;
+  const h = Math.floor(mins/60), m = mins%60;
+  return m > 0 ? `${h} ชม. ${m} น.` : `${h} ชม.`;
+}
+
+// ===== GRAPH =====
+let nodes = [], edges = [];
+let animFrame = null;
+let dragNode = null;       // node being dragged individually
+let dragNodeOffX = 0, dragNodeOffY = 0;
+let isPanning = false;     // panning the whole canvas
+
+function buildGraph() {
+  if (analysisResult.length === 0) return;
+
+  const canvas = document.getElementById('graphCanvas');
+  const container = document.getElementById('graphContainer');
+  canvas.width  = container.clientWidth  || 680;
+  canvas.height = Math.max(500, window.innerHeight * 0.65);
+
+  const W = canvas.width, H = canvas.height;
+  const cx = W / 2, cy = H / 2;
+
+  const camSet = new Set();
+  analysisResult.forEach(item => item.cams.forEach(c => camSet.add(c)));
+  const cams = [...camSet];
+  const topPlates = analysisResult.slice(0, 30);
+
+  nodes = [];
+  edges = [];
+
+  // ── CAMERAS on outer ring ──
+  const camR = Math.min(W, H) * 0.38;
+  cams.forEach((cam, i) => {
+    const angle = (i / cams.length) * Math.PI * 2 - Math.PI / 2;
+    const shortLines = cam.replace(/^[0-9]+_/, '').split('_');
+    nodes.push({
+      id: 'cam_' + cam,
+      label: shortLines.join('\n'),
+      type: 'cam',
+      x: cx + camR * Math.cos(angle),
+      y: cy + camR * Math.sin(angle),
+    });
+  });
+
+  // ── PLATES on inner ring ──
+  const plateR = Math.min(W, H) * 0.16;
+  topPlates.forEach((item, i) => {
+    const angle = (i / topPlates.length) * Math.PI * 2 - Math.PI / 2;
+    nodes.push({
+      id: 'plate_' + item.plate,
+      label: item.plate,
+      type: 'plate',
+      province: item.records[0].province,
+      camCount: item.camCount,
+      x: cx + plateR * Math.cos(angle),
+      y: cy + plateR * Math.sin(angle),
+    });
+    item.records.forEach(rec => {
+      edges.push({ from: 'plate_' + item.plate, to: 'cam_' + rec.cam, time: rec.datetime });
+    });
+  });
+
+  graphData = { nodes, edges };
+  document.getElementById('graphContainer').classList.add('active');
+  document.getElementById('graphEmpty').style.display = 'none';
+  graphScale = 1; graphOffX = 0; graphOffY = 0;
+  drawGraph();
+}
+
+// drawGraph transform:
+//   translate(W/2+offX, H/2+offY) -> scale(s) -> translate(-W/2,-H/2)
+// => screen_x = (world_x - W/2)*s + W/2 + offX
+// => world_x  = (screen_x - W/2 - offX)/s + W/2
+function screenToWorld(sx, sy) {
+  const c = document.getElementById('graphCanvas');
+  return {
+    x: (sx - c.width  / 2 - graphOffX) / graphScale + c.width  / 2,
+    y: (sy - c.height / 2 - graphOffY) / graphScale + c.height / 2,
+  };
+}
+function worldToScreen(wx, wy) {
+  const c = document.getElementById('graphCanvas');
+  return {
+    x: (wx - c.width  / 2) * graphScale + c.width  / 2 + graphOffX,
+    y: (wy - c.height / 2) * graphScale + c.height / 2 + graphOffY,
+  };
+}
+
+function nodeAt(wx, wy) {
+  for (let i = nodes.length - 1; i >= 0; i--) {
+    const n = nodes[i];
+    const dx = wx - n.x, dy = wy - n.y;
+    const hit = n.type === 'cam' ? 28 : 20;
+    if (Math.sqrt(dx * dx + dy * dy) < hit) return n;
+  }
+  return null;
+}
+
+function drawGraph() {
+  const canvas = document.getElementById('graphCanvas');
+  const container = document.getElementById('graphContainer');
+  // always sync canvas pixel size to CSS size
+  const W = container.clientWidth || 680;
+  const H = Math.max(500, window.innerHeight * 0.65);
+  if (canvas.width !== W)  canvas.width  = W;
+  if (canvas.height !== H) canvas.height = H;
+
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  ctx.save();
+  // apply pan + zoom centred on canvas midpoint
+  ctx.translate(canvas.width / 2 + graphOffX, canvas.height / 2 + graphOffY);
+  ctx.scale(graphScale, graphScale);
+  ctx.translate(-canvas.width / 2, -canvas.height / 2);
+
+  // ── EDGES ──
+  edges.forEach(e => {
+    const a = nodes.find(n => n.id === e.from);
+    const b = nodes.find(n => n.id === e.to);
+    if (!a || !b) return;
+    const isSel = selectedPlate && e.from === 'plate_' + selectedPlate;
+    ctx.strokeStyle = isSel ? '#f59e0b' : 'rgba(59,130,246,0.18)';
+    ctx.lineWidth   = isSel ? 2 : 0.8;
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+
+    if (isSel && e.time) {
+      const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      ctx.fillStyle = '#f59e0b';
+      ctx.font = '10px "IBM Plex Mono", monospace';
+      ctx.textAlign = 'center';
+      // white bg behind label
+      const label = e.time.replace(/\s+\d+\/\d+\/\d+/, '');
+      ctx.fillStyle = 'rgba(10,14,26,0.75)';
+      ctx.fillRect(mx - 28, my - 12, 56, 14);
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillText(label, mx, my - 1);
+    }
+  });
+
+  // ── NODES ──
+  nodes.forEach(n => {
+    const isSel = selectedPlate && n.id === 'plate_' + selectedPlate;
+    const isCamSel = selectedPlate &&
+      edges.some(e => e.from === 'plate_' + selectedPlate && e.to === n.id);
+
+    if (n.type === 'cam') {
+      // outer ring camera node — octagon
+      const R = 26;
+      ctx.fillStyle   = isCamSel ? '#1e3a5f' : '#111827';
+      ctx.strokeStyle = isCamSel ? '#f59e0b' : '#3b82f6';
+      ctx.lineWidth   = isCamSel ? 2.5 : 1.2;
+      octagon(ctx, n.x, n.y, R);
+      ctx.fill(); ctx.stroke();
+
+      ctx.font = '16px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('📷', n.x, n.y + 6);
+
+      // label outside the node
+      const lines = n.label.split('\n');
+      ctx.fillStyle = isCamSel ? '#fbbf24' : '#94a3b8';
+      ctx.font = `${isCamSel ? 500 : 400} 10px Sarabun, sans-serif`;
+      const lh = 13;
+      const totalH = lines.length * lh;
+      const startY = n.y + R + 10;
+      lines.forEach((l, i) => ctx.fillText(l, n.x, startY + i * lh));
+
+    } else {
+      // inner plate badge
+      const w = Math.max(70, n.label.length * 7.5 + 20), h = 28;
+      ctx.fillStyle   = isSel ? '#1d4ed8' : '#1e3a5f';
+      ctx.strokeStyle = isSel ? '#f59e0b' : '#3b82f6';
+      ctx.lineWidth   = isSel ? 2.5 : 1;
+      roundRect(ctx, n.x - w/2, n.y - h/2, w, h, 7);
+      ctx.fill(); ctx.stroke();
+
+      ctx.fillStyle = isSel ? '#fff' : '#e2e8f0';
+      ctx.font = `${isSel ? 600 : 500} 11px "IBM Plex Mono", monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillText(n.label, n.x, n.y + 4);
+
+      if (n.province) {
+        ctx.fillStyle = isSel ? '#fbbf24' : '#64748b';
+        ctx.font = '9px Sarabun, sans-serif';
+        ctx.fillText(n.province, n.x, n.y + h / 2 + 11);
+      }
+
+      // cam-count badge top-right
+      if (n.camCount > 1) {
+        const bx = n.x + w/2 - 2, by = n.y - h/2 - 2;
+        ctx.fillStyle = '#f59e0b';
+        ctx.beginPath(); ctx.arc(bx, by, 8, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#000';
+        ctx.font = 'bold 8px Sarabun, sans-serif';
+        ctx.fillText(n.camCount, bx, by + 3);
+      }
+    }
+  });
+
+  ctx.restore();
+}
+
+function octagon(ctx, cx, cy, r) {
+  ctx.beginPath();
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2 - Math.PI / 8;
+    i === 0 ? ctx.moveTo(cx + r*Math.cos(a), cy + r*Math.sin(a))
+            : ctx.lineTo(cx + r*Math.cos(a), cy + r*Math.sin(a));
+  }
+  ctx.closePath();
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y);
+  ctx.arcTo(x+w,y,x+w,y+r,r); ctx.lineTo(x+w,y+h-r);
+  ctx.arcTo(x+w,y+h,x+w-r,y+h,r); ctx.lineTo(x+r,y+h);
+  ctx.arcTo(x,y+h,x,y+h-r,r); ctx.lineTo(x,y+r);
+  ctx.arcTo(x,y,x+r,y,r); ctx.closePath();
+}
+
+// ── INPUT: pointer helpers ──
+function getPos(e) {
+  if (e.touches) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  return { x: e.clientX, y: e.clientY };
+}
+function canvasPos(e) {
+  const rect = document.getElementById('graphCanvas').getBoundingClientRect();
+  const p = getPos(e);
+  return { x: p.x - rect.left, y: p.y - rect.top };
+}
+
+// ── MOUSE / TOUCH ──
+const canvas = document.getElementById('graphCanvas');
+
+function onPointerDown(e) {
+  e.preventDefault();
+  const sp = canvasPos(e);
+  const wp = screenToWorld(sp.x, sp.y);
+  const hit = nodeAt(wp.x, wp.y);
+
+  if (hit) {
+    // drag individual node
+    dragNode = hit;
+    dragNodeOffX = 0;
+    dragNodeOffY = 0;
+    // select plate on click
+    if (hit.type === 'plate') {
+      selectedPlate = selectedPlate === hit.label ? null : hit.label;
+    }
+    drawGraph();
+  } else {
+    // pan canvas
+    isPanning = true;
+    dragStart = { x: sp.x - graphOffX, y: sp.y - graphOffY };
+  }
+}
+
+function onPointerMove(e) {
+  e.preventDefault();
+  const sp = canvasPos(e);
+  if (dragNode) {
+    const wp = screenToWorld(sp.x, sp.y);
+    dragNode.x = wp.x;
+    dragNode.y = wp.y;
+    drawGraph();
+  } else if (isPanning) {
+    graphOffX = sp.x - dragStart.x;
+    graphOffY = sp.y - dragStart.y;
+    drawGraph();
+  } else {
+    // hover cursor
+    const wp = screenToWorld(sp.x, sp.y);
+    canvas.style.cursor = nodeAt(wp.x, wp.y) ? 'grab' : 'default';
+  }
+}
+
+function onPointerUp(e) {
+  if (dragNode && !isPanning) {
+    // tiny movement = click (already handled in down)
+  }
+  dragNode = null;
+  isPanning = false;
+  canvas.style.cursor = 'default';
+}
+
+canvas.addEventListener('mousedown',  onPointerDown);
+canvas.addEventListener('mousemove',  onPointerMove);
+canvas.addEventListener('mouseup',    onPointerUp);
+canvas.addEventListener('mouseleave', onPointerUp);
+canvas.addEventListener('touchstart', onPointerDown, { passive: false });
+canvas.addEventListener('touchmove',  onPointerMove, { passive: false });
+canvas.addEventListener('touchend',   onPointerUp);
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  zoomGraph(e.deltaY < 0 ? 1.1 : 0.9);
+}, { passive: false });
+
+function zoomGraph(factor) {
+  graphScale = Math.max(0.2, Math.min(4, graphScale * factor));
+  drawGraph();
+}
+function resetGraph() {
+  graphScale = 1; graphOffX = 0; graphOffY = 0;
+  drawGraph();
+}
+
+// ===== SUMMARY =====
+function renderSummary() {
+  const camCount = {};
+  analysisResult.forEach(item => item.records.forEach(r => {
+    camCount[r.cam] = (camCount[r.cam] || 0) + 1;
+  }));
+
+  const sorted = Object.entries(camCount).sort((a,b) => b[1]-a[1]);
+  const max = sorted[0]?.[1] || 1;
+
+  const html = `
+    <div style="margin-bottom:12px;font-size:12px;color:var(--text2);">จำนวนทะเบียนที่ซ้ำในแต่ละจุดตรวจ</div>
+    ${sorted.map(([cam, count]) => {
+      const pct = Math.round(count / max * 100);
+      const short = cam.replace(/^[0-9]+_/, '').replace(/_/g, ' ');
+      return `
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <div style="font-size:13px;font-weight:500;">📷 ${short}</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--accent);">${count} คัน</div>
+          </div>
+          <div style="background:var(--surface2);border-radius:4px;height:6px;overflow:hidden;">
+            <div style="height:100%;width:${pct}%;background:var(--accent);border-radius:4px;transition:width 0.5s;"></div>
+          </div>
+        </div>`;
+    }).join('')}
+  `;
+  document.getElementById('summaryContent').innerHTML = html;
+}
+
+// ===== TABS =====
+function switchTab(tab, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tabList').style.display    = tab === 'list'    ? '' : 'none';
+  document.getElementById('tabConvoy').style.display  = tab === 'convoy'  ? '' : 'none';
+  document.getElementById('tabGraph').style.display   = tab === 'graph'   ? '' : 'none';
+  document.getElementById('tabSummary').style.display = tab === 'summary' ? '' : 'none';
+  if (tab === 'graph' && graphData) setTimeout(drawGraph, 50);
+}
+
+// ===== TOAST =====
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + type;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// Live search
+document.getElementById('searchInput').addEventListener('input', () => {
+  if (analysisResult.length > 0) analyze();
+});
+
+// Resize graph on window resize
+window.addEventListener('resize', () => { if (graphData) drawGraph(); });
+</script>
+</body>
+</html>
